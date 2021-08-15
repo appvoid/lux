@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+clear
+
+GREEN='\033[0;32m'
+ORANGE='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+LIGHT_GRAY='\033[0;37m'
+DARK_GRAY='\033[1;30m'
+LIGHT_RED='\033[1;31m'
+LIGHT_GREEN='\033[1;32m'
+YELLOW='\033[1;33m'
+LIGHT_BLUE='\033[1;34m'
+LIGHT_PURPLE='\033[1;35m'
+LIGHT_CYAN='\033[1;36m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+[ ! -d "kivy_venv" ] && python3 -m virtualenv kivy_venv
+[ -d "kivy_venv" ] && source ./kivy_venv/bin/activate
+
+install_system (){
+    sudo apt-get install git-all
+    sudo apt-get install build-essential && python3 -m pip install --upgrade pip && pip install Cython && pip install buildozer && python -m pip install kivy[full]
+    sudo apt-get install openjdk-8-jdk
+    sudo apt-get install -y libgstreamer1.0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+    sudo apt-get install -y build-essential libsqlite3-dev sqlite3 bzip2 libbz2-dev zlib1g-dev libssl-dev openssl libgdbm-dev libgdbm-compat-dev liblzma-dev libreadline-dev libncursesw5-dev libffi-dev uuid-dev libffi6
+    sudo apt-get install -y libffi-dev
+    [ -f "lux" ] && sudo mv lux /usr/bin
+}
+
+uninstall (){
+    cd /usr/bin
+    cp lux ~/Downloads
+    sudo rm lux
+}
+
+run_linux (){
+    echo -e "${BLUE}Launching Linux app 🐧️"
+    if [[ $1 == "-v" ]];then
+        python3 main.py #& disown
+    else
+        python3 main.py > /dev/null 2>&1 & disown
+    fi
+}
+
+run_android (){
+    echo -e "${BLUE}Launching Android app 🤖️"
+    if [[ $1 == "-v" ]];then
+        yes | buildozer android debug deploy run
+    elif [[ $1 == "-d" ]];then
+        echo -e "Type project's name ${GREEN}(hit enter to set default, org.test.myapp)"
+        read name
+        if [[ $name == "" ]];then
+            name="org.test.myapp"
+        fi
+        ~/.buildozer/android/platform/android-sdk/platform-tools/adb shell run-as $name cat "files/app/output.txt" && exit && exit
+    else
+        yes | buildozer android debug deploy run > /dev/null 2>&1
+    fi
+}
+
+if [[ $1 == "linux" ]];then
+    run_linux "$2"
+elif [[ $1 == "android" ]];then
+    run_android "$2"
+elif [[ $1 == "" ]];then
+    echo -e "If you need help, type 👉️ ${GREEN}lux help"
+elif [[ $1 == "both" ]];then
+    run_android "$2" && run_linux "$2"
+elif [[ $1 == "install" ]];then
+    install_system
+elif [[ $1 == "uninstall" ]];then
+    uninstall 
+elif [[ $1 == "quick-start" ]];then
+    lux init && lux both -v
+elif [[ $1 == "help" ]];then
+    echo -e "${GREEN}source ${BLUE}lux: ${NC}starts lux environment ${YELLOW}--> (Recommended as first step)"
+    echo -e "${BLUE}lux ${GREEN}quick-start: ${NC}full installation of the system [init + both -v] ${YELLOW}--> (Recommended as second step)"
+    echo -e "${BLUE}lux ${GREEN}both: ${NC}runs both android and linux apps"
+    echo -e "${BLUE}lux ${GREEN}android: ${NC}runs android app"
+    echo -e "${BLUE}lux ${GREEN}android -d: ${NC}debugs android using different package name ${YELLOW}(different from org.test.myapp)"
+    echo -e "${BLUE}lux ${GREEN}linux: ${NC}runs linux app"
+    echo -e "${BLUE}lux ${LIGHT_PURPLE}(android/linux/both) ${GREEN}-v: ${NC}runs verbose mode for debugging"
+    echo -e "${BLUE}lux ${GREEN}install: ${NC}installs everything to get a Linux/Android app"
+    echo -e "${BLUE}lux ${GREEN}uninstall: ${NC}sends lux binary to Downloads folder"
+    echo -e "${BLUE}lux ${GREEN}init: ${NC}initialize buildozer and kivy environment, creates default main.py file"
+    echo -e "${BLUE}lux ${GREEN}android-debugging: ${NC}shows android errors from the last building time"
+elif [[ $1 == "init" ]];then
+    buildozer init
+    touch main.py
+    true > main.py
+    echo "from kivy.app import App" >> main.py
+    echo "from kivy.uix.label import Label" >> main.py
+    echo "class test(App):" >> main.py
+    echo "   def build(self):" >> main.py
+    echo "       return Label(text='Hello world')" >> main.py
+    echo "                    " >> main.py
+    echo "if __name__ == '__main__':" >> main.py
+    echo "    test().run()" >> main.py
+elif [[ $1 == "android-debugging" ]];then
+    ~/.buildozer/android/platform/android-sdk/platform-tools/adb shell run-as org.test.myapp cat "files/app/output.txt" && exit && exit
+else
+    echo "$1 is not a known command"
+fi
